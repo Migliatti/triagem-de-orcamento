@@ -3,6 +3,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+LIMITE_NOME, LIMITE_DESCRICAO, LIMITE_ITENS = 120, 2000, 1000
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -21,7 +22,8 @@ def _texto(valor) -> str:
 
 
 def _nome(valor) -> str:
-    return " ".join(p.capitalize() for p in _texto(valor).split())
+    # cada trecho de letras ganha inicial maiúscula: "d'ávila" -> "D'Ávila", "(sérgio)" -> "(Sérgio)"
+    return re.sub(r"[^\W\d_]+", lambda m: m.group().capitalize(), _texto(valor).lower())
 
 
 def _contato(payload: dict) -> tuple[str | None, str | None]:
@@ -68,6 +70,8 @@ def _itens(valor) -> list[str]:
 def validar(payload, agora: datetime) -> Resultado:
     if not isinstance(payload, dict):
         return Resultado(False, None, ["payload_invalido"])
+    if payload.get("_payload_grande"):  # marca posta pelo n8n quando o corpo não cabe na linha de comando
+        return Resultado(False, None, ["payload_grande"])
 
     erros = []
     nome = _nome(payload.get("nome"))
@@ -86,6 +90,10 @@ def validar(payload, agora: datetime) -> Resultado:
     if not legivel:
         erros.append("prazo_ilegivel")
 
+    itens = _itens(payload.get("itens"))
+    if len(nome) > LIMITE_NOME or len(descricao) > LIMITE_DESCRICAO or len(", ".join(itens)) > LIMITE_ITENS:
+        erros.append("campo_muito_longo")
+
     if erros:
         return Resultado(False, None, erros)
 
@@ -94,7 +102,7 @@ def validar(payload, agora: datetime) -> Resultado:
         "email": email,
         "telefone": telefone,
         "descricao": descricao,
-        "itens": _itens(payload.get("itens")),
+        "itens": itens,
         "prazo": prazo,
         "prazo_dias": (prazo - agora.date()).days if prazo else None,
     })

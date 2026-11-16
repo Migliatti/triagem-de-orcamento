@@ -45,3 +45,10 @@ def test_metrica_conta_vencidos_apos_varredura(con):
 def test_metrica_banco_vazio_nao_divide_por_zero(con):
     m = calcular(con)
     assert (m["pedidos"], m["minutos_antes"], m["minutos_depois"]) == (0, 0.0, 0.0)
+
+
+def test_sem_resposta_arredonda_para_cima(con):
+    # 10 pedidos x 25% = 2,5 -> 3 (round() daria 2)
+    for i in range(10):
+        cli.receber({"nome": "A", "contato": f"a{i}@exemplo.test", "descricao": f"mesa {i}"}, con, AGORA)
+    assert calcular(con)["sem_resposta_antes"] == 3

@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS historico_status (
 CREATE TABLE IF NOT EXISTS notificacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pedido_id INTEGER REFERENCES pedidos(id),
-    destinatario TEXT NOT NULL, tipo TEXT NOT NULL, status TEXT NOT NULL, criado_em TEXT NOT NULL
+    destinatario TEXT NOT NULL, tipo TEXT NOT NULL, status TEXT NOT NULL, criado_em TEXT NOT NULL,
+    assunto TEXT NOT NULL DEFAULT '', corpo TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS erros (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS erros (
 
 
 def conectar(caminho: str) -> sqlite3.Connection:
-    con = sqlite3.connect(caminho)
+    con = sqlite3.connect(caminho, timeout=30)
     con.row_factory = sqlite3.Row
     con.executescript(ESQUEMA)
     return con
@@ -58,6 +59,29 @@ def chave_descricao(pedido: dict) -> str:
 
 
 def inserir_pedido(con, pedido: dict, cls: Classificacao, agora: datetime) -> int:
+    pedido_id = _inserir(con, pedido, cls, agora)
+    con.commit()
+    return pedido_id
+
+
+def inserir_unico(con, pedido: dict, cls: Classificacao, agora: datetime) -> tuple[int, bool]:
+    """Checa duplicidade e insere na mesma transação (BEGIN IMMEDIATE): webhooks simultâneos não duplicam.
+    Devolve (id, duplicado)."""
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        existente = achar_duplicado(con, pedido, agora)
+        if existente is not None:
+            con.rollback()
+            return existente, True
+        pedido_id = _inserir(con, pedido, cls, agora)
+        con.commit()
+        return pedido_id, False
+    except BaseException:
+        con.rollback()
+        raise
+
+
+def _inserir(con, pedido: dict, cls: Classificacao, agora: datetime) -> int:
     cur = con.execute(
         """INSERT INTO pedidos (nome, email, telefone, descricao, itens, prazo, tipo, urgencia,
                responsavel, sla_horas, status, criado_em, chave_desc)
@@ -70,7 +94,6 @@ def inserir_pedido(con, pedido: dict, cls: Classificacao, agora: datetime) -> in
     )
     con.execute("INSERT INTO historico_status (pedido_id, status, em) VALUES (?,?,?)",
                 (cur.lastrowid, "atribuido", _iso(agora)))
-    con.commit()
     return cur.lastrowid
 
 
@@ -126,9 +149,10 @@ def ja_notificou(con, pedido_id: int, tipo: str) -> bool:
 
 
 def registrar_notificacao(con, pedido_id: int | None, destinatario: str, tipo: str,
-                          status: str, agora: datetime) -> int:
+                          status: str, agora: datetime, assunto: str = "", corpo: str = "") -> int:
     cur = con.execute(
-        "INSERT INTO notificacoes (pedido_id, destinatario, tipo, status, criado_em) VALUES (?,?,?,?,?)",
-        (pedido_id, destinatario, tipo, status, _iso(agora)))
+        """INSERT INTO notificacoes (pedido_id, destinatario, tipo, status, criado_em, assunto, corpo)
+           VALUES (?,?,?,?,?,?,?)""",
+        (pedido_id, destinatario, tipo, status, _iso(agora), assunto, corpo))
     con.commit()
     return cur.lastrowid

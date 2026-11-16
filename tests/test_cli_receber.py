@@ -118,3 +118,22 @@ def test_agora_malformado_sai_json_exit_0(tmp_path):
     p = rodar_cli(["varrer", "--db", str(tmp_path / "c.db"), "--agora", "ontem"], None, tmp_path)
     assert p.returncode == 0
     assert json.loads(p.stdout)["erro"] == "interno"
+
+
+def test_receber_simultaneo_grava_um_so_pedido(tmp_path):
+    import threading
+    caminho = str(tmp_path / "conc.db")
+    db.conectar(caminho).close()
+    resultados = []
+
+    def tentar():
+        c = db.conectar(caminho)
+        resultados.append(cli.receber(VALIDO, c, AGORA))
+        c.close()
+
+    ts = [threading.Thread(target=tentar) for _ in range(8)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert sum(1 for r in resultados if r["ok"]) == 1
+    assert sum(1 for r in resultados if r["erro"] == "duplicado") == 7
+    assert db.conectar(caminho).execute("SELECT COUNT(*) FROM pedidos").fetchone()[0] == 1

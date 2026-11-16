@@ -6,6 +6,20 @@ Projeto de portfólio de automação de processos. **Tudo é fictício**: empres
 Pedidos de orçamento chegam sem padrão (nome em maiúsculas, contato faltando, prazo escrito "quando der", o mesmo pedido enviado duas vezes) e ninguém cobra quem esqueceu de responder. O arquivo [`data/pedidos_exemplo.json`](data/pedidos_exemplo.json) reproduz essa bagunça em 10 pedidos: é o "antes".
 
 ## Desenho
+```mermaid
+flowchart LR
+    W[Webhook n8n] --> C[Codificar payload]
+    C --> R["python -m triagem receber"]
+    R --> V{válido e novo?}
+    V -- sim --> G[(SQLite)] --> A[Alerta simulado ao responsável] --> OK[200]
+    V -- inválido --> E1[(erros)] --> R422[422]
+    V -- duplicado --> E2[(erros)] --> R409[409]
+    T[Agendador n8n, 1h] --> S["python -m triagem varrer"]
+    S --> L[Lembrete aos 75% do SLA]
+    S --> X[Vencido + escalonamento aos 100%]
+```
+
+Versão em texto:
 ```
 webhook (n8n) ─► python -m triagem receber ─► validar ─► duplicado? ─► classificar ─► SQLite ─► alerta simulado
                          └── erro tratado: registra em `erros`, devolve JSON ok=false, fluxo segue
@@ -24,6 +38,7 @@ Regras completas: [`docs/especificacao.md`](docs/especificacao.md). Métrica: [`
 
 ## Limites
 - O nó Execute Command do n8n exige n8n local; não serve na nuvem gratuita.
+- O workflow do GitHub Actions (`.github/workflows/tests.yml`) foi escrito mas nunca executado.
 - Os fluxos n8n foram testados num n8n 2.47.7 local (200/422/409, lembrete e escalonamento), mas só no Windows e o agendamento de 1 hora não foi esperado de fato (ver [`docs/rodar-n8n.md`](docs/rodar-n8n.md)).
 - Classificação por palavras-chave: simples de defender, mas erra textos que fogem do vocabulário (caem em `indefinido` para triagem manual).
 - Métrica baseada em premissas inventadas.
@@ -32,7 +47,7 @@ Regras completas: [`docs/especificacao.md`](docs/especificacao.md). Métrica: [`
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -e .[dev]   # Linux/macOS: .venv/bin/pip
-.venv/Scripts/python -m pytest        # 69 testes, incluindo ponta a ponta
+.venv/Scripts/python -m pytest        # 78 testes, incluindo ponta a ponta
 ```
 Uso manual do CLI:
 ```bash

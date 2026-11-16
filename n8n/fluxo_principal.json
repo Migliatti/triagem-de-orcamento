@@ -27,11 +27,12 @@
       "position": [
         330,
         0
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// O CLI sempre imprime um JSON (ok true/false). Aqui só lemos esse JSON.\nconst saida = JSON.parse($input.first().json.stdout);\nreturn [{ json: saida }];"
+        "jsCode": "// O CLI sempre imprime um JSON (ok true/false). Se o comando falhar de vez (sem JSON),\n// devolvemos erro interno em vez de derrubar o fluxo.\nconst item = $input.first().json;\ntry {\n  return [{ json: JSON.parse(item.stdout) }];\n} catch (e) {\n  return [{ json: { ok: false, erro: 'interno', detalhe: item.stderr || item.error || null } }];\n}"
       },
       "name": "Interpretar saida",
       "type": "n8n-nodes-base.code",
@@ -105,10 +106,10 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {
-          "responseCode": "={{ $json.motivo === 'duplicado' ? 409 : 422 }}"
+          "responseCode": "={{ $json.motivo === 'duplicado' ? 409 : ($json.motivo === 'interno' ? 500 : 422) }}"
         }
       },
-      "name": "Responder 422/409",
+      "name": "Responder erro",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -118,7 +119,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Buffer não existe em expressões do n8n, mas existe aqui no nó Code.\nconst corpo = $input.first().json.body ?? {};\nconst b64 = Buffer.from(JSON.stringify(corpo), 'utf-8').toString('base64');\nreturn [{ json: { b64 } }];"
+        "jsCode": "// Buffer não existe em expressões do n8n, mas existe aqui no nó Code.\n// A linha de comando do Windows aceita ~8000 caracteres: corpo grande demais vira uma marca\n// que o Python registra como erro `payload_grande`, em vez de estourar o comando.\nconst corpo = $input.first().json.body ?? {};\nlet b64 = Buffer.from(JSON.stringify(corpo), 'utf-8').toString('base64');\nif (b64.length > 6000) {\n  b64 = Buffer.from(JSON.stringify({ _payload_grande: true }), 'utf-8').toString('base64');\n}\nreturn [{ json: { b64 } }];"
       },
       "name": "Codificar payload",
       "type": "n8n-nodes-base.code",
@@ -196,7 +197,7 @@
       "main": [
         [
           {
-            "node": "Responder 422/409",
+            "node": "Responder erro",
             "type": "main",
             "index": 0
           }

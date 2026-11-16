@@ -1,4 +1,5 @@
 """Regra de classificação: tipo, urgência, SLA e responsável. Sem acesso a banco nem relógio."""
+import re
 import unicodedata
 from dataclasses import dataclass
 
@@ -37,7 +38,7 @@ def sem_acento(texto: str) -> str:
 
 def _tipo(texto: str) -> str:
     for tipo, palavras in PALAVRAS_CHAVE.items():
-        if any(p in texto for p in palavras):
+        if any(re.search(r"\b" + re.escape(p), texto) for p in palavras):  # início de palavra
             return tipo
     return "indefinido"
 
@@ -49,7 +50,7 @@ def _urgencia(prazo_dias: int | None, texto: str) -> str:
         nivel = 1
     else:
         nivel = 2
-    if "urgente" in texto:
+    if re.search(r"\burgente", texto) and not re.search(r"\bnao (e |eh |tao )?urgente", texto):
         nivel = min(nivel + 1, 2)
     return _NIVEIS[nivel]
 

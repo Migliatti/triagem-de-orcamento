@@ -55,3 +55,14 @@ def test_sla_por_urgencia():
 def test_reparo_vence_sob_medida_mas_nao_corporativo():
     assert classificar(pedido("conserto da porta do armário")).tipo == "reparo"
     assert classificar(pedido("consertar cadeira do escritório")).tipo == "corporativo"
+
+
+def test_palavra_chave_so_no_inicio_da_palavra():
+    assert classificar(pedido("preparo de superfície")).tipo == "indefinido"  # não é "reparo"
+    assert classificar(pedido("reparo na mesa")).tipo == "reparo"
+
+
+def test_negacao_de_urgente_nao_sobe_nivel():
+    assert classificar(pedido("mesa, não é urgente", prazo_dias=30)).urgencia == "baixa"
+    assert classificar(pedido("mesa nao urgente", prazo_dias=30)).urgencia == "baixa"
+    assert classificar(pedido("mesa urgente", prazo_dias=30)).urgencia == "media"

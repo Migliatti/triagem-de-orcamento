@@ -93,3 +93,20 @@ def test_varrer_idempotente(con):
     pedido_alta(con)
     cli.varrer(con, horas(5))
     assert cli.varrer(con, horas(5)) == []
+
+
+def test_reenvio_usa_texto_original(con, monkeypatch, tmp_path):
+    monkeypatch.setenv("TRIAGEM_FALHA_ENVIO", "1")
+    pedido_alta(con)
+    monkeypatch.delenv("TRIAGEM_FALHA_ENVIO")
+    cli.varrer(con, horas(1))
+    log = (tmp_path / "alertas.log").read_text(encoding="utf-8")
+    assert "Novo pedido #1" in log and "cozinha planejada" in log
+
+
+def test_reenvio_pula_pedido_ja_respondido(con, monkeypatch):
+    monkeypatch.setenv("TRIAGEM_FALHA_ENVIO", "1")
+    pid = pedido_alta(con)
+    monkeypatch.delenv("TRIAGEM_FALHA_ENVIO")
+    cli.responder(con, pid, horas(0.5))
+    assert cli.varrer(con, horas(1)) == []
