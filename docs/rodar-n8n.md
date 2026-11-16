@@ -3,7 +3,7 @@
 Os fluxos em `n8n/` são finos: só chamam o CLI Python (`python -m triagem ...`). Toda a regra está em `src/triagem` e é testada com pytest.
 
 **Status de verificação:** testado de verdade com o n8n 2.47.7 local (baixado via `npx`), em 2026-11-16. Resultados:
-- `fluxo_principal`: `curl` com pedido válido → HTTP 200; inválido → 422; duplicado → 409. Pedido gravado no SQLite e alerta no `logs/alertas.log`.
+- `fluxo_principal`: `curl` com pedido válido → HTTP 200; inválido → 422; duplicado → 409; corpo de 9 KB → 422 `payload_grande`; descrição de 2500 caracteres → 422 `campo_muito_longo`. Pedido gravado no SQLite e alerta no `logs/alertas.log`.
 - `fluxo_lembretes`: executado pelo agendador do n8n (cópia de teste a cada 1 minuto, não incluída no repositório). Com o pedido recuado no banco para 20h, saiu o lembrete; recuado para 30h, ficou `vencido` e a Helena foi avisada.
 - O teste revelou um erro real: `Buffer` não existe em expressões do n8n, então a codificação base64 foi para um nó Code ("Codificar payload").
 - Não testado: o agendamento de 1 hora de fato (só a cópia de 1 minuto), nem o nó Execute Command fora do Windows (o comando usa `cd /d` e `.venv\Scripts`).

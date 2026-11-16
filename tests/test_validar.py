@@ -94,3 +94,20 @@ def test_surrogate_solto_nao_quebra():
     r = validar(base(nome="\ud800ana"), AGORA)
     assert r.ok
     r.pedido["nome"].encode("utf-8")  # não pode levantar
+
+
+def test_nome_com_apostrofo_e_parenteses():
+    assert validar(base(nome="joão d'ávila"), AGORA).pedido["nome"] == "João D'Ávila"
+    assert validar(base(nome="café (sérgio)"), AGORA).pedido["nome"] == "Café (Sérgio)"
+
+
+def test_campos_muito_longos_rejeitados():
+    r = validar(base(descricao="x" * 2001), AGORA)
+    assert not r.ok and "campo_muito_longo" in r.erros
+    r = validar(base(nome="y" * 121), AGORA)
+    assert not r.ok and "campo_muito_longo" in r.erros
+
+
+def test_marca_de_payload_grande_do_n8n():
+    r = validar({"_payload_grande": True}, AGORA)
+    assert not r.ok and r.erros == ["payload_grande"]

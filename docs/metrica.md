@@ -13,7 +13,7 @@ Tudo aqui é simulação sobre os 10 pedidos fictícios de `data/pedidos_exemplo
 | | Antes (manual) | Depois (automático) |
 |---|---|---|
 | Minutos de triagem | 72 | 3 |
-| Pedidos sem resposta | 2 (25% arredondado) | 0 até o SLA; os que passarem dele viram `vencido` e escalonam para a gestora |
+| Pedidos sem resposta | 2 (25% arredondado para cima) | 0 até o SLA; os que passarem dele viram `vencido` e escalonam para a gestora |
 
 Rodar: `python -m triagem metrica --db triagem.db`. A saída traz `"rotulo": "SIMULAÇÃO"`.
 

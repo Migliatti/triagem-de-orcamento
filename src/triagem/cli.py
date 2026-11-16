@@ -31,28 +31,33 @@ def receber(payload, con, agora: datetime) -> dict:
         return _saida(erro="duplicado", pedido_id=existente)
 
     cls = classificar(pedido)
-    pedido_id = db.inserir_pedido(con, pedido, cls, agora)
-    enviou = enviar_simulado(
-        cls.responsavel,
+    pedido_id, duplicado = db.inserir_unico(con, pedido, cls, agora)
+    if duplicado:  # outro pedido igual entrou entre a checagem e a gravação
+        db.registrar_erro(con, "duplicado", payload, f"igual ao pedido {pedido_id}", agora)
+        return _saida(erro="duplicado", pedido_id=pedido_id)
+    status = _enviar_e_registrar(
+        con, pedido_id, cls.responsavel, "novo",
         f"Novo pedido #{pedido_id} ({cls.tipo}, urgência {cls.urgencia})",
-        f"{pedido['nome']}: {pedido['descricao']} | responder em {cls.sla_horas}h",
-    )
-    status = "enviada" if enviou else "falha"
-    db.registrar_notificacao(con, pedido_id, cls.responsavel, "novo", status, agora)
+        f"{pedido['nome']}: {pedido['descricao']} | responder em {cls.sla_horas}h", agora)
     return _saida(ok=True, pedido_id=pedido_id, tipo=cls.tipo, urgencia=cls.urgencia,
                   responsavel=cls.responsavel, sla_horas=cls.sla_horas, notificacao=status)
 
 
-def _enviar_e_registrar(con, pedido_id, destinatario, tipo, assunto, corpo, agora) -> None:
-    enviou = enviar_simulado(destinatario, assunto, corpo)
-    db.registrar_notificacao(con, pedido_id, destinatario, tipo, "enviada" if enviou else "falha", agora)
+def _enviar_e_registrar(con, pedido_id, destinatario, tipo, assunto, corpo, agora) -> str:
+    status = "enviada" if enviar_simulado(destinatario, assunto, corpo) else "falha"
+    db.registrar_notificacao(con, pedido_id, destinatario, tipo, status, agora, assunto, corpo)
+    return status
 
 
 def varrer(con, agora: datetime) -> list[dict]:
     """Reenvia alertas que falharam, manda lembrete aos 75% do SLA e escalona aos 100%."""
     acoes = []
     for n in db.notificacoes_com_falha(con):
-        if enviar_simulado(n["destinatario"], f"Reenvio de alerta ({n['tipo']})", f"pedido #{n['pedido_id']}"):
+        pedido = db.buscar_pedido(con, n["pedido_id"]) if n["pedido_id"] else None
+        if pedido is not None and pedido["status"] == "respondido":
+            continue  # já foi respondido: não adianta reenviar
+        assunto = n["assunto"] or f"Reenvio de alerta ({n['tipo']})"
+        if enviar_simulado(n["destinatario"], assunto, n["corpo"] or f"pedido #{n['pedido_id']}"):
             db.marcar_notificacao_enviada(con, n["id"])
             acoes.append({"pedido_id": n["pedido_id"], "acao": "reenvio", "destinatario": n["destinatario"]})
 
