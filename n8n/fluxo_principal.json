@@ -1,0 +1,79 @@
+{
+  "name": "Triagem - recebe pedido",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pedido",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook pedido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "triagem-pedido"
+    },
+    {
+      "parameters": {
+        "command": "=cd /d \"<CAMINHO_DO_PROJETO>\" && .venv\\Scripts\\python.exe -m triagem receber --db triagem.db --payload-b64 {{ Buffer.from(JSON.stringify($json.body || {})).toString('base64') }}"
+      },
+      "name": "Python: receber",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// O CLI sempre imprime um JSON (ok true/false). Aqui só lemos esse JSON.\nconst saida = JSON.parse($input.first().json.stdout);\nreturn [{ json: saida }];"
+      },
+      "name": "Interpretar saida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.ok }}", "value2": true }
+          ]
+        }
+      },
+      "name": "Pedido aceito?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nreturn [{ json: { status: 'aceito', pedido_id: r.pedido_id, tipo: r.tipo, urgencia: r.urgencia, responsavel: r.responsavel, notificacao: r.notificacao } }];"
+      },
+      "name": "Resposta aceito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Erro tratado (invalido ou duplicado): já foi registrado na tabela erros pelo Python.\nconst r = $input.first().json;\nreturn [{ json: { status: 'rejeitado', motivo: r.erro, detalhe: r.detalhe || null } }];"
+      },
+      "name": "Resposta rejeitado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 100]
+    }
+  ],
+  "connections": {
+    "Webhook pedido": { "main": [[{ "node": "Python: receber", "type": "main", "index": 0 }]] },
+    "Python: receber": { "main": [[{ "node": "Interpretar saida", "type": "main", "index": 0 }]] },
+    "Interpretar saida": { "main": [[{ "node": "Pedido aceito?", "type": "main", "index": 0 }]] },
+    "Pedido aceito?": {
+      "main": [
+        [{ "node": "Resposta aceito", "type": "main", "index": 0 }],
+        [{ "node": "Resposta rejeitado", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
