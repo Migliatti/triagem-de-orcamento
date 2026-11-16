@@ -87,3 +87,34 @@ def test_cli_valido_imprime_json_utf8(tmp_path):
                   entrada, tmp_path)
     assert p.returncode == 0, p.stderr
     assert json.loads(p.stdout)["responsavel"] == "Marta Lopes"
+
+
+def test_excecao_no_envio_vira_falha_e_nao_perde_pedido(con, tmp_path, monkeypatch):
+    monkeypatch.setenv("TRIAGEM_LOG", str(tmp_path))  # um diretório: abrir como arquivo dá OSError
+    r = cli.receber(VALIDO, con, AGORA)
+    assert r["ok"] and r["notificacao"] == "falha"
+    assert con.execute("SELECT status FROM notificacoes").fetchone()[0] == "falha"
+
+
+def test_receber_surrogate_nao_levanta(con):
+    r = cli.receber({**VALIDO, "nome": "\ud800ana"}, con, AGORA)
+    assert r["ok"] is True
+    r2 = cli.receber({"nome": "\ud800", "descricao": "\ud800"}, con, AGORA)  # inválido, vai para `erros`
+    assert r2["erro"] == "invalido"
+
+
+def test_cli_json_muito_aninhado_exit_0(tmp_path):
+    p = rodar_cli(["receber", "--db", str(tmp_path / "c.db")], "[" * 200000, tmp_path)
+    assert p.returncode == 0, p.stderr[-300:]
+    assert json.loads(p.stdout)["erro"] == "invalido"
+
+
+def test_agora_com_fuso_vira_naive():
+    d = cli._agora("2026-11-16T10:00:00-03:00")
+    assert d.tzinfo is None
+
+
+def test_agora_malformado_sai_json_exit_0(tmp_path):
+    p = rodar_cli(["varrer", "--db", str(tmp_path / "c.db"), "--agora", "ontem"], None, tmp_path)
+    assert p.returncode == 0
+    assert json.loads(p.stdout)["erro"] == "interno"

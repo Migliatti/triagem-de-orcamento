@@ -14,7 +14,10 @@ class Resultado:
 
 
 def _texto(valor) -> str:
-    return " ".join(str(valor).split()) if valor is not None else ""
+    if valor is None:
+        return ""
+    # surrogates soltos (ex.: um \ud800 no JSON) viram "?" para o texto poder ir ao SQLite/JSON
+    return " ".join(str(valor).encode("utf-8", "replace").decode("utf-8").split())
 
 
 def _nome(valor) -> str:
@@ -31,7 +34,11 @@ def _contato(payload: dict) -> tuple[str | None, str | None]:
         if EMAIL_RE.match(bruto):
             email = email or bruto.lower()
             continue
+        if "@" in bruto:  # parece e-mail mas é inválido: não extrair telefone dele
+            continue
         digitos = re.sub(r"\D", "", bruto)
+        if len(digitos) in (12, 13) and digitos.startswith("55"):  # prefixo do país
+            digitos = digitos[2:]
         if len(digitos) in (10, 11):
             telefone = telefone or digitos
     return email, telefone

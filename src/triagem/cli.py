@@ -81,12 +81,21 @@ def responder(con, pedido_id: int, agora: datetime) -> bool:
 
 
 def _agora(texto: str | None) -> datetime:
-    return datetime.fromisoformat(texto) if texto else datetime.now().replace(microsecond=0)
+    agora = datetime.fromisoformat(texto) if texto else datetime.now().replace(microsecond=0)
+    return db.para_naive(agora)
 
 
 def main(argv=None) -> int:
     for fluxo in (sys.stdout, sys.stderr):
         fluxo.reconfigure(encoding="utf-8")
+    try:
+        return _executar(argv)
+    except Exception as e:  # contrato: o n8n sempre recebe um JSON, nunca um traceback
+        print(json.dumps(_saida(erro="interno", detalhe=type(e).__name__)))
+        return 0
+
+
+def _executar(argv) -> int:
     parser = argparse.ArgumentParser(prog="triagem")
     sub = parser.add_subparsers(dest="comando", required=True)
     for nome in ("receber", "varrer", "responder", "metrica"):
@@ -106,7 +115,7 @@ def main(argv=None) -> int:
             bruto = (base64.b64decode(args.payload_b64) if args.payload_b64
                      else sys.stdin.buffer.read())
             payload = json.loads(bruto.decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             payload = None
         resultado = receber(payload, con, agora)
     elif args.comando == "varrer":

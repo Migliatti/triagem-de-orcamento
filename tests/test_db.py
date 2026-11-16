@@ -76,3 +76,26 @@ def test_conectar_idempotente(tmp_path):
     caminho = str(tmp_path / "x.db")
     db.conectar(caminho).close()
     db.conectar(caminho).close()
+
+
+def test_duplicado_ignora_acento_e_pontuacao(con):
+    pedido, cls = novo(descricao="Orçamento: armário!")
+    pid = db.inserir_pedido(con, pedido, cls, AGORA)
+    outro, _ = novo(descricao="orcamento  ARMARIO")
+    assert db.achar_duplicado(con, outro, AGORA) == pid
+
+
+def test_duplicado_por_telefone_quando_email_difere(con):
+    pedido, cls = novo(contato="ana@exemplo.test", telefone="11 91234-5678")
+    pid = db.inserir_pedido(con, pedido, cls, AGORA)
+    so_tel, _ = novo(contato="(11) 91234-5678")
+    assert db.achar_duplicado(con, so_tel, AGORA) == pid
+
+
+def test_datas_com_fuso_sao_gravadas_sem_fuso(con):
+    from datetime import datetime, timedelta, timezone
+    aware = datetime(2026, 11, 16, 10, 0, tzinfo=timezone(timedelta(hours=-3)))
+    pedido, cls = novo()
+    pid = db.inserir_pedido(con, pedido, cls, aware)
+    criado = con.execute("SELECT criado_em FROM pedidos WHERE id=?", (pid,)).fetchone()[0]
+    assert "+" not in criado and "-03" not in criado

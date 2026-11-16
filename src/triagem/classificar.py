@@ -14,8 +14,8 @@ RESPONSAVEIS = {
 # Ordem = prioridade em caso de empate: o primeiro tipo com alguma palavra encontrada vence.
 PALAVRAS_CHAVE = {
     "corporativo": ["escritorio", "loja", "empresa", "estacoes", "mobiliario", "restaurante", "clinica", "consultorio"],
-    "sob_medida": ["armario", "cozinha", "guarda-roupa", "planejad", "closet", "estante", "sob medida"],
     "reparo": ["conserto", "consertar", "dobradica", "reparo", "emperr", "restaurar", "lixar", "envernizar"],
+    "sob_medida": ["armario", "cozinha", "guarda-roupa", "planejad", "closet", "estante", "sob medida"],
 }
 
 SLA_HORAS = {"alta": 4, "media": 24, "baixa": 72}
@@ -30,7 +30,7 @@ class Classificacao:
     responsavel: str
 
 
-def _sem_acento(texto: str) -> str:
+def sem_acento(texto: str) -> str:
     base = unicodedata.normalize("NFD", texto.lower())
     return "".join(c for c in base if unicodedata.category(c) != "Mn")
 
@@ -55,7 +55,7 @@ def _urgencia(prazo_dias: int | None, texto: str) -> str:
 
 
 def classificar(pedido: dict) -> Classificacao:
-    texto = _sem_acento(" ".join([pedido.get("descricao", ""), *pedido.get("itens", [])]))
+    texto = sem_acento(" ".join([pedido.get("descricao", ""), *pedido.get("itens", [])]))
     tipo = _tipo(texto)
     urgencia = _urgencia(pedido.get("prazo_dias"), texto)
     return Classificacao(tipo, urgencia, SLA_HORAS[urgencia], RESPONSAVEIS[tipo])

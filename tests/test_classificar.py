@@ -23,9 +23,9 @@ def test_sem_palavra_chave_indefinido_helena():
 
 
 def test_empate_prioridade_fixa():
-    # corporativo > sob_medida > reparo
+    # corporativo > reparo > sob_medida
     assert classificar(pedido("reparo no escritório")).tipo == "corporativo"
-    assert classificar(pedido("consertar armário")).tipo == "sob_medida"
+    assert classificar(pedido("consertar armário")).tipo == "reparo"
 
 
 def test_palavras_em_itens_e_sem_acento():
@@ -50,3 +50,8 @@ def test_sla_por_urgencia():
     assert classificar(pedido("mesa", prazo_dias=1)).sla_horas == 4
     assert classificar(pedido("mesa", prazo_dias=10)).sla_horas == 24
     assert classificar(pedido("mesa")).sla_horas == 72
+
+
+def test_reparo_vence_sob_medida_mas_nao_corporativo():
+    assert classificar(pedido("conserto da porta do armário")).tipo == "reparo"
+    assert classificar(pedido("consertar cadeira do escritório")).tipo == "corporativo"

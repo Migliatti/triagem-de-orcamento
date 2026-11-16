@@ -3,7 +3,9 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
-from .classificar import Classificacao
+import re
+
+from .classificar import Classificacao, sem_acento
 
 JANELA_DUPLICADO_DIAS = 7
 
@@ -14,9 +16,9 @@ CREATE TABLE IF NOT EXISTS pedidos (
     descricao TEXT NOT NULL, itens TEXT NOT NULL, prazo TEXT,
     tipo TEXT NOT NULL, urgencia TEXT NOT NULL, responsavel TEXT NOT NULL,
     sla_horas INTEGER NOT NULL, status TEXT NOT NULL,
-    criado_em TEXT NOT NULL, chave_dedup TEXT NOT NULL
+    criado_em TEXT NOT NULL, chave_desc TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_pedidos_dedup ON pedidos(chave_dedup, criado_em);
+CREATE INDEX IF NOT EXISTS idx_pedidos_dedup ON pedidos(chave_desc, criado_em);
 CREATE TABLE IF NOT EXISTS historico_status (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pedido_id INTEGER NOT NULL REFERENCES pedidos(id),
@@ -41,26 +43,30 @@ def conectar(caminho: str) -> sqlite3.Connection:
     return con
 
 
+def para_naive(dt: datetime) -> datetime:
+    """O banco guarda só datas sem fuso (hora local); datas com fuso são convertidas."""
+    return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
+
+
 def _iso(dt: datetime) -> str:
-    return dt.isoformat(timespec="seconds")
+    return para_naive(dt).isoformat(timespec="seconds")
 
 
-def chave_dedup(pedido: dict) -> str:
-    contato = pedido.get("email") or pedido.get("telefone") or ""
-    descricao = " ".join(pedido["descricao"].lower().split())
-    return f"{contato}|{descricao}"
+def chave_descricao(pedido: dict) -> str:
+    """Descrição sem acento, sem pontuação, minúscula e com espaços colapsados."""
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", sem_acento(pedido["descricao"])).split())
 
 
 def inserir_pedido(con, pedido: dict, cls: Classificacao, agora: datetime) -> int:
     cur = con.execute(
         """INSERT INTO pedidos (nome, email, telefone, descricao, itens, prazo, tipo, urgencia,
-               responsavel, sla_horas, status, criado_em, chave_dedup)
+               responsavel, sla_horas, status, criado_em, chave_desc)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (pedido["nome"], pedido["email"], pedido["telefone"], pedido["descricao"],
          json.dumps(pedido["itens"], ensure_ascii=False),
          pedido["prazo"].isoformat() if pedido["prazo"] else None,
          cls.tipo, cls.urgencia, cls.responsavel, cls.sla_horas, "atribuido",
-         _iso(agora), chave_dedup(pedido)),
+         _iso(agora), chave_descricao(pedido)),
     )
     con.execute("INSERT INTO historico_status (pedido_id, status, em) VALUES (?,?,?)",
                 (cur.lastrowid, "atribuido", _iso(agora)))
@@ -69,17 +75,19 @@ def inserir_pedido(con, pedido: dict, cls: Classificacao, agora: datetime) -> in
 
 
 def achar_duplicado(con, pedido: dict, agora: datetime) -> int | None:
-    limite = _iso(agora - timedelta(days=JANELA_DUPLICADO_DIAS))
+    limite = _iso(para_naive(agora) - timedelta(days=JANELA_DUPLICADO_DIAS))
+    # mesma descrição normalizada E mesmo e-mail OU mesmo telefone (NULL nunca é igual a nada)
     linha = con.execute(
-        "SELECT id FROM pedidos WHERE chave_dedup=? AND criado_em>=? ORDER BY id LIMIT 1",
-        (chave_dedup(pedido), limite),
+        """SELECT id FROM pedidos WHERE chave_desc=? AND criado_em>=?
+           AND (email=? OR telefone=?) ORDER BY id LIMIT 1""",
+        (chave_descricao(pedido), limite, pedido.get("email"), pedido.get("telefone")),
     ).fetchone()
     return linha["id"] if linha else None
 
 
 def registrar_erro(con, tipo: str, payload, detalhe: str, agora: datetime) -> None:
     try:
-        texto = json.dumps(payload, ensure_ascii=False, default=str)
+        texto = json.dumps(payload, default=str)
     except (TypeError, ValueError):
         texto = repr(payload)
     con.execute("INSERT INTO erros (tipo, payload, detalhe, criado_em) VALUES (?,?,?,?)",

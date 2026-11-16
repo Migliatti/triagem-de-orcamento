@@ -78,3 +78,19 @@ def test_payload_nao_dict_nao_quebra():
     for lixo in (None, [], "texto", 42):
         r = validar(lixo, AGORA)
         assert not r.ok and r.erros
+
+
+def test_telefone_com_prefixo_55():
+    r = validar(base(contato="+55 11 91234-5678"), AGORA)
+    assert r.ok and r.pedido["telefone"] == "11912345678"
+
+
+def test_email_invalido_nao_vira_telefone():
+    r = validar(base(contato="11987654321@gmail"), AGORA)
+    assert not r.ok and "contato_invalido" in r.erros
+
+
+def test_surrogate_solto_nao_quebra():
+    r = validar(base(nome="\ud800ana"), AGORA)
+    assert r.ok
+    r.pedido["nome"].encode("utf-8")  # não pode levantar
