@@ -24,7 +24,7 @@ Regras completas: [`docs/especificacao.md`](docs/especificacao.md). Métrica: [`
 
 ## Limites
 - O nó Execute Command do n8n exige n8n local; não serve na nuvem gratuita.
-- Os fluxos n8n **não foram importados nem executados** num n8n real durante o desenvolvimento (ver [`docs/rodar-n8n.md`](docs/rodar-n8n.md)). O que foi testado é o CLI que eles chamam.
+- Os fluxos n8n foram testados num n8n 2.47.7 local (200/422/409, lembrete e escalonamento), mas só no Windows e o agendamento de 1 hora não foi esperado de fato (ver [`docs/rodar-n8n.md`](docs/rodar-n8n.md)).
 - Classificação por palavras-chave: simples de defender, mas erra textos que fogem do vocabulário (caem em `indefinido` para triagem manual).
 - Métrica baseada em premissas inventadas.
 
@@ -32,7 +32,7 @@ Regras completas: [`docs/especificacao.md`](docs/especificacao.md). Métrica: [`
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -e .[dev]   # Linux/macOS: .venv/bin/pip
-.venv/Scripts/python -m pytest        # 57 testes, incluindo ponta a ponta
+.venv/Scripts/python -m pytest        # 69 testes, incluindo ponta a ponta
 ```
 Uso manual do CLI:
 ```bash
