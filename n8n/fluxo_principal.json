@@ -1,0 +1,221 @@
+{
+  "name": "Triagem - recebe pedido",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pedido",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook pedido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "triagem-pedido"
+    },
+    {
+      "parameters": {
+        "command": "=cd /d \"<CAMINHO_DO_PROJETO>\" && .venv\\Scripts\\python.exe -m triagem receber --db triagem.db --payload-b64 {{ $json.b64 }}"
+      },
+      "name": "Python: receber",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        330,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// O CLI sempre imprime um JSON (ok true/false). Aqui só lemos esse JSON.\nconst saida = JSON.parse($input.first().json.stdout);\nreturn [{ json: saida }];"
+      },
+      "name": "Interpretar saida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        550,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.ok }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Pedido aceito?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        770,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nreturn [{ json: { status: 'aceito', pedido_id: r.pedido_id, tipo: r.tipo, urgencia: r.urgencia, responsavel: r.responsavel, notificacao: r.notificacao } }];"
+      },
+      "name": "Resposta aceito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        990,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Erro tratado (invalido ou duplicado): já foi registrado na tabela erros pelo Python.\nconst r = $input.first().json;\nreturn [{ json: { status: 'rejeitado', motivo: r.erro, detalhe: r.detalhe || null } }];"
+      },
+      "name": "Resposta rejeitado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        990,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Responder 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1210,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.motivo === 'duplicado' ? 409 : 422 }}"
+        }
+      },
+      "name": "Responder 422/409",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1210,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Buffer não existe em expressões do n8n, mas existe aqui no nó Code.\nconst corpo = $input.first().json.body ?? {};\nconst b64 = Buffer.from(JSON.stringify(corpo), 'utf-8').toString('base64');\nreturn [{ json: { b64 } }];"
+      },
+      "name": "Codificar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        110,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook pedido": {
+      "main": [
+        [
+          {
+            "node": "Codificar payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Python: receber": {
+      "main": [
+        [
+          {
+            "node": "Interpretar saida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar saida": {
+      "main": [
+        [
+          {
+            "node": "Pedido aceito?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedido aceito?": {
+      "main": [
+        [
+          {
+            "node": "Resposta aceito",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resposta rejeitado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta aceito": {
+      "main": [
+        [
+          {
+            "node": "Responder 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta rejeitado": {
+      "main": [
+        [
+          {
+            "node": "Responder 422/409",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codificar payload": {
+      "main": [
+        [
+          {
+            "node": "Python: receber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
