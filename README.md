@@ -28,7 +28,6 @@ agendado (n8n, 1h) ─► python -m triagem varrer ─► lembrete (75% do SLA) 
 - **Python** guarda toda a regra (`src/triagem`), testada com pytest.
 - **n8n** só orquestra: chama o CLI e ramifica pelo JSON de saída ([`n8n/`](n8n/)).
 - **SQLite**: tabelas `pedidos`, `historico_status`, `notificacoes`, `erros`.
-Para treinar a explicação: [`docs/roteiro-entrevista.md`](docs/roteiro-entrevista.md).
 Regras completas: [`docs/especificacao.md`](docs/especificacao.md). Métrica: [`docs/metrica.md`](docs/metrica.md).
 
 ## Decisões
