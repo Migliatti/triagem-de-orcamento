@@ -1,0 +1,75 @@
+[
+  {
+    "nome": "  joão da silva ",
+    "contato": "joao.silva@Exemplo.test",
+    "descricao": "Queria orçamento de armário de cozinha planejada, uns 3m",
+    "itens": "1 armário aéreo, 1 balcão",
+    "prazo": "30/11/2026",
+    "_esperado": {"valido": true, "tipo": "sob_medida", "urgencia": "media", "motivo_erro": null}
+  },
+  {
+    "nome": "ANA PAULA",
+    "contato": "(11) 91234-5678",
+    "descricao": "guarda-roupa planejado pro quarto do casal",
+    "itens": ["guarda-roupa"],
+    "prazo": "2027-02-10",
+    "_esperado": {"valido": true, "tipo": "sob_medida", "urgencia": "baixa", "motivo_erro": null}
+  },
+  {
+    "nome": "Café Estação (Sérgio)",
+    "contato": "sergio@cafeestacao.exemplo.test",
+    "descricao": "Preciso de mobiliário para loja nova: 8 mesas e 20 cadeiras. URGENTE!!",
+    "itens": "8 mesas, 20 cadeiras",
+    "prazo": "2026-11-18",
+    "_esperado": {"valido": true, "tipo": "corporativo", "urgencia": "alta", "motivo_erro": null}
+  },
+  {
+    "nome": "Contabilidade Bravo",
+    "contato": "contato@bravo.exemplo.test",
+    "descricao": "reforma do escritório: bancadas e armários para 12 estações",
+    "itens": ["12 bancadas", "12 armários"],
+    "prazo": "25/11/2026",
+    "_esperado": {"valido": true, "tipo": "corporativo", "urgencia": "media", "motivo_erro": null}
+  },
+  {
+    "nome": "dona Cida",
+    "contato": "11 98888-7766",
+    "descricao": "a gaveta da cômoda emperrou e a dobradiça soltou, preciso consertar",
+    "prazo": "2026-11-19",
+    "_esperado": {"valido": true, "tipo": "reparo", "urgencia": "alta", "motivo_erro": null}
+  },
+  {
+    "nome": "Renato",
+    "contato": "renato@exemplo.test",
+    "descricao": "lixar e envernizar a mesa de jantar",
+    "prazo": "quando der",
+    "_esperado": {"valido": false, "tipo": null, "urgencia": null, "motivo_erro": "prazo_ilegivel"}
+  },
+  {
+    "nome": "Pedro",
+    "contato": "pedro@exemplo.test",
+    "descricao": "oi, vcs trabalham com madeira? quanto custa?",
+    "prazo": null,
+    "_esperado": {"valido": true, "tipo": "indefinido", "urgencia": "baixa", "motivo_erro": null}
+  },
+  {
+    "nome": "Luiza",
+    "descricao": "quero um closet",
+    "prazo": "2026-12-20",
+    "_esperado": {"valido": false, "tipo": null, "urgencia": null, "motivo_erro": "contato_invalido"}
+  },
+  {
+    "nome": "Marcos",
+    "contato": "marcos@exemplo.test",
+    "descricao": "   ",
+    "_esperado": {"valido": false, "tipo": null, "urgencia": null, "motivo_erro": "descricao_ausente"}
+  },
+  {
+    "nome": "João da Silva",
+    "contato": "JOAO.SILVA@exemplo.test",
+    "descricao": "  QUERIA orçamento de armário de cozinha planejada,   uns 3M",
+    "itens": "1 armário aéreo, 1 balcão",
+    "prazo": "30/11/2026",
+    "_esperado": {"valido": false, "tipo": null, "urgencia": null, "motivo_erro": "duplicado"}
+  }
+]
